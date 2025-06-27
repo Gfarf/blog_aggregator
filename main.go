@@ -1,7 +1,11 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+)
 
 func main() {
 	fmt.Println("Hello, World!")
+	print(os.UserHomeDir())
 }
