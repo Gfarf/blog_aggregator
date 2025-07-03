@@ -47,6 +47,12 @@ func main() {
 	cmds.register("reset", handlerReset)
 	cmds.register("users", handlerUsers)
 	cmds.register("agg", handleFetch)
+	cmds.register("addfeed", middlewareLoggedIn(handleAddFeed))
+	cmds.register("feeds", handleGetFeeds)
+	cmds.register("follow", middlewareLoggedIn(handleFollow))
+	cmds.register("following", middlewareLoggedIn(handleFollowing))
+	cmds.register("feedfollows", handleFeedFollows)
+	cmds.register("unfollow", middlewareLoggedIn(handleUnfollow))
 
 	cmd := command{}
 	cmd.name = args[1]

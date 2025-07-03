@@ -10,6 +10,100 @@ import (
 	"github.com/google/uuid"
 )
 
+func handleUnfollow(s *state, cmd command, user database.User) error {
+	if len(cmd.args) != 1 {
+		return fmt.Errorf("expected url")
+	}
+	feed, err := s.db.GetFeedsFromURL(context.Background(), cmd.args[0])
+	if err != nil {
+		return err
+	}
+	err = s.db.Unfollow(context.Background(), database.UnfollowParams{UserID: user.ID, FeedID: feed.ID})
+	if err != nil {
+		return err
+	}
+	fmt.Println("Feed unfollowed")
+	return nil
+}
+
+func handleFollow(s *state, cmd command, user database.User) error {
+	if len(cmd.args) != 1 {
+		return fmt.Errorf("expected url")
+	}
+	feed, err := s.db.GetFeedsFromURL(context.Background(), cmd.args[0])
+	if err != nil {
+		return err
+	}
+	ffollow, err := s.db.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		UserID:    user.ID,
+		FeedID:    feed.ID,
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Println(ffollow)
+	return nil
+}
+
+func handleFollowing(s *state, cmd command, user database.User) error {
+	list, err := s.db.GetFeedFollowForUser(context.Background(), user.ID)
+	if err != nil {
+		return err
+	}
+	for _, item := range list {
+		fmt.Println(item.FeedName)
+	}
+	return nil
+}
+
+func handleGetFeeds(s *state, cmd command) error {
+	feeds, err := s.db.GetFeeds(context.Background())
+	if err != nil {
+		return err
+	}
+	for _, feed := range feeds {
+		fmt.Printf("Feed name: %s\n", feed.Name)
+		fmt.Printf("Feed url: %s\n", feed.Url)
+		userName, err := s.db.GetUserByID(context.Background(), feed.UserID)
+		if err != nil {
+			return err
+		}
+		fmt.Printf("User name: %s\n", userName)
+	}
+	return nil
+}
+
+func handleAddFeed(s *state, cmd command, user database.User) error {
+	if len(cmd.args) != 2 {
+		return fmt.Errorf("expected name and Url")
+	}
+	feed, err := s.db.CreateFeed(context.Background(), database.CreateFeedParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		Name:      cmd.args[0],
+		Url:       cmd.args[1],
+		UserID:    user.ID})
+	if err != nil {
+		return err
+	}
+	_, err = s.db.CreateFeedFollow(context.Background(), database.CreateFeedFollowParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+		UserID:    user.ID,
+		FeedID:    feed.ID,
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Println(feed)
+	return nil
+}
+
 func handleFetch(s *state, cmd command) error {
 	feed, err := fetchFeed(context.Background(), "https://www.wagslane.dev/index.xml")
 	if err != nil {
@@ -21,8 +115,8 @@ func handleFetch(s *state, cmd command) error {
 }
 
 func handlerLogin(s *state, cmd command) error {
-	if cmd.args == nil {
-		return fmt.Errorf("expected username, found nothing")
+	if len(cmd.args) != 1 {
+		return fmt.Errorf("expected username")
 	}
 	_, err := s.db.GetUser(context.Background(), cmd.args[0])
 	if err != nil {
@@ -38,8 +132,8 @@ func handlerLogin(s *state, cmd command) error {
 }
 
 func handlerRegister(s *state, cmd command) error {
-	if cmd.args == nil {
-		return fmt.Errorf("expected name, found nothing")
+	if len(cmd.args) != 1 {
+		return fmt.Errorf("expected name")
 	}
 	_, err := s.db.GetUser(context.Background(), cmd.args[0])
 	if err == nil {
@@ -75,11 +169,23 @@ func handlerUsers(s *state, cmd command) error {
 	}
 	for _, name := range list {
 		fmt.Printf("* %s", name)
-		if s.cfg.CurrentUserName == name {
+		if s.cfg.CurrentUserName == name.Name {
 			fmt.Printf(" (current)\n")
 		} else {
 			fmt.Println()
 		}
+	}
+	return nil
+}
+
+func handleFeedFollows(s *state, cmd command) error {
+	list, err := s.db.GetFeedFollows(context.Background())
+	if err != nil {
+		return err
+	}
+	fmt.Println(list)
+	for _, name := range list {
+		fmt.Println(name)
 	}
 	return nil
 }

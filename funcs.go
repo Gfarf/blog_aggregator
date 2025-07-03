@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/Gfarf/blog_aggregator/internal/database"
 )
 
 // RSS Feed XML struct
@@ -70,4 +72,14 @@ func fetchFeed(ctx context.Context, feedURL string) (*RSSFeed, error) {
 		rssFeed.Channel.Item[i] = item
 	}
 	return &rssFeed, nil
+}
+
+func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) error) func(*state, command) error {
+	return (func(s *state, cmd command) error {
+		user, err := s.db.GetUser(context.Background(), s.cfg.CurrentUserName)
+		if err != nil {
+			return err
+		}
+		return handler(s, cmd, user)
+	})
 }
