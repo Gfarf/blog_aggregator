@@ -105,12 +105,18 @@ func handleAddFeed(s *state, cmd command, user database.User) error {
 }
 
 func handleFetch(s *state, cmd command) error {
-	feed, err := fetchFeed(context.Background(), "https://www.wagslane.dev/index.xml")
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+	if len(cmd.args) != 1 {
+		return fmt.Errorf("expected time between requisitions")
 	}
-	fmt.Printf("Feed: %+v\n", feed)
+	timeBetweenRequests, err := time.ParseDuration(cmd.args[0])
+	if err != nil {
+		return err
+	}
+	fmt.Printf("Collecting feeds every %s\n", cmd.args[0])
+	ticker := time.NewTicker(timeBetweenRequests)
+	for ; ; <-ticker.C {
+		scrapeFeeds(s)
+	}
 	return nil
 }
 

@@ -2,7 +2,9 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/xml"
+	"fmt"
 	"html"
 	"io"
 	"net/http"
@@ -82,4 +84,33 @@ func middlewareLoggedIn(handler func(s *state, cmd command, user database.User) 
 		}
 		return handler(s, cmd, user)
 	})
+}
+
+func scrapeFeeds(s *state) error {
+	//Get the next feed
+	feedID, err := s.db.GetNextFeedToFetch(context.Background())
+	if err != nil {
+		return err
+	}
+	err = s.db.MarkFeedFetched(
+		context.Background(),
+		database.MarkFeedFetchedParams{ID: feedID, UpdatedAt: time.Now(),
+			LastFetchedAt: sql.NullTime{Time: time.Now(), Valid: true}})
+	if err != nil {
+		return err
+	}
+	feed, err := s.db.GetFeedByID(context.Background(), feedID)
+	if err != nil {
+		return err
+	}
+	fmt.Println(feed.Name)
+	feedData, err := fetchFeed(context.Background(), feed.Url)
+	if err != nil {
+		return err
+	}
+	for _, item := range feedData.Channel.Item {
+		fmt.Printf("Found post: %s\n", item.Title)
+	}
+	fmt.Printf("Feed %s collected, %v posts found", feed.Name, len(feedData.Channel.Item))
+	return nil
 }
