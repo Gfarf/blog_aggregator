@@ -8,9 +8,11 @@ import (
 	"html"
 	"io"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/Gfarf/blog_aggregator/internal/database"
+	"github.com/google/uuid"
 )
 
 // RSS Feed XML struct
@@ -108,9 +110,52 @@ func scrapeFeeds(s *state) error {
 	if err != nil {
 		return err
 	}
-	for _, item := range feedData.Channel.Item {
-		fmt.Printf("Found post: %s\n", item.Title)
+	postsUrl, err := s.db.GetPostsUrls(context.Background())
+	if err != nil {
+		return err
 	}
-	fmt.Printf("Feed %s collected, %v posts found", feed.Name, len(feedData.Channel.Item))
+	for _, item := range feedData.Channel.Item {
+		if slices.Contains(postsUrl, item.Link) {
+			continue
+		}
+		parsedTime, err := timeParser(item.PubDate)
+		if err != nil {
+			fmt.Println(err)
+		}
+		_, err = s.db.CreatePost(context.Background(), database.CreatePostParams{
+			ID:          uuid.New(),
+			CreatedAt:   time.Now(),
+			UpdatedAt:   time.Now(),
+			Title:       sql.NullString{String: item.Title, Valid: true},
+			Url:         item.Link,
+			Description: sql.NullString{String: item.Description, Valid: true},
+			PublishedAt: parsedTime,
+			FeedID:      feedID,
+		})
+		if err != nil {
+			return fmt.Errorf("fail during Post creation: %v", err)
+		}
+	}
 	return nil
+}
+
+func timeParser(s string) (time.Time, error) {
+	res, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		res, err = time.Parse(time.ANSIC, s)
+		if err != nil {
+			res, err = time.Parse(time.UnixDate, s)
+			if err != nil {
+				res, err = time.Parse("Sat, 25 Jul 2020 00:00:00 +0000", s)
+				if err != nil {
+					var t time.Time
+					return t, fmt.Errorf("error parsing time: %v", err)
+				}
+				return res, nil
+			}
+			return res, nil
+		}
+		return res, nil
+	}
+	return res, nil
 }

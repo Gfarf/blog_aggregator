@@ -53,6 +53,8 @@ func main() {
 	cmds.register("following", middlewareLoggedIn(handleFollowing))
 	cmds.register("feedfollows", handleFeedFollows)
 	cmds.register("unfollow", middlewareLoggedIn(handleUnfollow))
+	cmds.register("brownse", middlewareLoggedIn(handleGetPosts))
+	cmds.register("tenposts", allPosts)
 
 	cmd := command{}
 	cmd.name = args[1]

@@ -4,11 +4,48 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strconv"
 	"time"
 
 	"github.com/Gfarf/blog_aggregator/internal/database"
 	"github.com/google/uuid"
 )
+
+func allPosts(s *state, cmd command) error {
+	posts, err := s.db.GetPosts(context.Background())
+	if err != nil {
+		return err
+	}
+	for _, post := range posts {
+		fmt.Println(post)
+	}
+	return nil
+}
+
+func handleGetPosts(s *state, cmd command, user database.User) error {
+	var limit int32
+	if len(cmd.args) > 1 {
+		return fmt.Errorf("excessive parameters, only limit accepted")
+	} else if len(cmd.args) == 1 {
+		num, err := strconv.ParseInt(cmd.args[0], 10, 32)
+		if err != nil {
+			return fmt.Errorf("limit must be a number: %v", err)
+		}
+		limit = int32(num)
+	} else {
+		limit = 2
+	}
+	posts, err := s.db.GetPostsForUser(context.Background(), database.GetPostsForUserParams{UserID: user.ID, Limit: limit})
+	if err != nil {
+		return err
+	}
+	for _, post := range posts {
+		fmt.Printf("Post Url: %s\n\n", post.Url)
+		fmt.Printf("Post Title: %s\n\n", post.Title.String)
+		fmt.Printf("Post Description: %s\n\n\n", post.Description.String)
+	}
+	return nil
+}
 
 func handleUnfollow(s *state, cmd command, user database.User) error {
 	if len(cmd.args) != 1 {
@@ -115,7 +152,10 @@ func handleFetch(s *state, cmd command) error {
 	fmt.Printf("Collecting feeds every %s\n", cmd.args[0])
 	ticker := time.NewTicker(timeBetweenRequests)
 	for ; ; <-ticker.C {
-		scrapeFeeds(s)
+		err = scrapeFeeds(s)
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
